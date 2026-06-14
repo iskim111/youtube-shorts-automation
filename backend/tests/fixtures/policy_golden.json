@@ -1,0 +1,28 @@
+[
+  {
+    "id": "case_ai_realistic_person",
+    "topic": {
+      "copyright_risk": "low",
+      "category": "comedy",
+      "ai_label_required": true
+    },
+    "expect": { "ai_label_required": true }
+  },
+  {
+    "id": "case_music_over_60s",
+    "topic": { "copyright_risk": "high", "category": "kpop" },
+    "expect": { "rights_passed": false }
+  },
+  {
+    "id": "case_licensed_pexels",
+    "topic": { "copyright_risk": "low", "category": "food" },
+    "expect": { "rights_passed": true }
+  },
+  {
+    "id": "case_template_similarity",
+    "topic": { "copyright_risk": "low", "category": "comedy" },
+    "similar_hooks": ["회식 끝나고 꼭 나오는 그 한마디"],
+    "hook": "회식 끝나고 꼭 나오는 그 한마디",
+    "expect": { "similarity_penalty_min": 10 }
+  }
+]

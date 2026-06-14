@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.local
+*.pem
+credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build & logs
+dist/
+build/
+*.log
+
+# Storage local
+minio_data/
+postgres_data/
+backend/data/
+backend/tests/test_runtime/
+tools/ffmpeg/*.exe
+tools/ffmpeg/ffprobe*
