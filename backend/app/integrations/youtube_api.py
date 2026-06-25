@@ -20,10 +20,22 @@ class YouTubeAPIError(Exception):
     pass
 
 
+def _expiry_for_storage(expiry: datetime | None) -> datetime | None:
+    if expiry is None:
+        return None
+    if expiry.tzinfo is None:
+        return expiry.replace(tzinfo=UTC)
+    return expiry.astimezone(UTC)
+
+
+def _expiry_for_google_creds(expiry: datetime | None) -> datetime | None:
+    if expiry is None:
+        return None
+    aware = expiry if expiry.tzinfo else expiry.replace(tzinfo=UTC)
+    return aware.astimezone(UTC).replace(tzinfo=None)
+
+
 def _to_credentials(settings: Settings, record: OAuthCredential) -> Credentials:
-    expiry = record.token_expires_at
-    if expiry and expiry.tzinfo is None:
-        expiry = expiry.replace(tzinfo=UTC)
     return Credentials(
         token=record.access_token,
         refresh_token=record.refresh_token,
@@ -31,7 +43,7 @@ def _to_credentials(settings: Settings, record: OAuthCredential) -> Credentials:
         client_id=settings.youtube_client_id,
         client_secret=settings.youtube_client_secret,
         scopes=record.scopes,
-        expiry=expiry,
+        expiry=_expiry_for_google_creds(record.token_expires_at),
     )
 
 
@@ -56,7 +68,7 @@ def apply_refreshed_tokens(record: OAuthCredential, creds: Credentials) -> None:
     if creds.refresh_token:
         record.refresh_token = creds.refresh_token
     if creds.expiry:
-        record.token_expires_at = creds.expiry.replace(tzinfo=UTC)
+        record.token_expires_at = _expiry_for_storage(creds.expiry)
     else:
         record.token_expires_at = datetime.now(UTC) + timedelta(hours=1)
     record.last_refreshed_at = datetime.now(UTC)

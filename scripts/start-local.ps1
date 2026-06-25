@@ -28,13 +28,14 @@ Start-Process powershell -ArgumentList @(
 
 Start-Sleep -Seconds 3
 
-Write-Host "[frontend] starting next dev on :3000 ..."
+$FrontendPort = 3001
+Write-Host "[frontend] starting next dev on :$FrontendPort ..."
 Start-Process powershell -ArgumentList @(
     "-NoExit", "-Command",
-    "Set-Location '$Frontend'; npm run dev"
+    "Set-Location '$Frontend'; `$env:PORT='$FrontendPort'; npm run dev"
 ) | Out-Null
 
 Write-Host ""
-Write-Host "Dashboard: http://localhost:3000"
+Write-Host "Dashboard: http://localhost:$FrontendPort"
 Write-Host "API docs:  http://localhost:8000/docs"
 Write-Host "Pilot:     python backend/scripts/run_pilot.py"

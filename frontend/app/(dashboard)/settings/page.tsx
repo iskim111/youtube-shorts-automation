@@ -2,7 +2,8 @@ import { Suspense } from "react";
 
 import { ChannelCreateForm } from "@/components/ChannelCreateForm";
 import { OAuthConnect } from "@/components/OAuthConnect";
-import { SetupChecklist } from "@/components/SetupChecklist";import { api, type Channel } from "@/lib/api";
+import { SetupChecklist } from "@/components/SetupChecklist";
+import { api, type Channel } from "@/lib/api";
 
 export default async function SettingsPage() {
   let channels: Channel[] = [];

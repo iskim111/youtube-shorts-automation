@@ -5,7 +5,7 @@ import pytest
 from jose import jwt
 
 from app.config import Settings
-from app.integrations.youtube_oauth import STATE_ALGORITHM, decode_state
+from app.integrations.youtube_oauth import STATE_ALGORITHM, decode_oauth_state, decode_state
 
 
 @pytest.fixture
@@ -28,6 +28,22 @@ def test_decode_state_valid(settings: Settings):
         algorithm=STATE_ALGORITHM,
     )
     assert decode_state(settings, state) == channel_id
+
+
+def test_decode_oauth_state_with_pkce(settings: Settings):
+    channel_id = uuid.uuid4()
+    state = jwt.encode(
+        {
+            "channel_id": str(channel_id),
+            "code_verifier": "test-verifier",
+            "exp": datetime.now(UTC) + timedelta(minutes=5),
+        },
+        settings.jwt_secret,
+        algorithm=STATE_ALGORITHM,
+    )
+    decoded_id, verifier = decode_oauth_state(settings, state)
+    assert decoded_id == channel_id
+    assert verifier == "test-verifier"
 
 
 def test_decode_state_invalid(settings: Settings):

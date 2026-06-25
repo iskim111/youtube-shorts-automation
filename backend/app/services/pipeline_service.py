@@ -26,6 +26,36 @@ from app.services.script_generator import generate_script
 from app.services.subtitle_service import write_srt
 
 
+def _scene_assets_for_render(
+    script_content: dict,
+    assets: list,
+) -> list[tuple[Path | None, int, str]]:
+    scenes = script_content.get("scenes") or []
+    by_seq = {
+        int(a.asset_metadata.get("scene_seq", 0)): a
+        for a in assets
+        if a.asset_metadata
+    }
+    if not by_seq and assets:
+        by_seq[1] = assets[0]
+
+    timeline: list[tuple[Path | None, int, str]] = []
+    for scene in scenes:
+        seq = int(scene.get("seq", len(timeline) + 1))
+        duration = int(scene.get("duration_sec", 8))
+        asset = by_seq.get(seq)
+        if not asset or not asset.storage_uri:
+            timeline.append((None, duration, "placeholder"))
+            continue
+        path = Path(asset.storage_uri)
+        kind = asset.asset_metadata.get("media_kind", "video")
+        if not path.exists():
+            timeline.append((None, duration, "placeholder"))
+        else:
+            timeline.append((path, duration, kind))
+    return timeline
+
+
 async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings) -> Job:
     if job.status not in (
         JobStatus.TOPIC_APPROVED,
@@ -85,7 +115,9 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
     asset_stage = get_stage(job, "asset")
     start_stage(asset_stage)
     job.status = JobStatus.ASSET_SEARCHING
-    assets = await fetch_assets_for_job(session, job, topic, settings, job_dir)
+    assets = await fetch_assets_for_job(
+        session, job, topic, settings, job_dir, script_content=script_content
+    )
     asset_uri = assets[0].storage_uri if assets and assets[0].storage_uri else "generated:fallback"
     finish_stage(asset_stage, asset_uri)
     job.status = JobStatus.ASSET_READY
@@ -119,11 +151,8 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
     job.status = JobStatus.RENDER_PROCESSING
     video_path = job_dir / "output.mp4"
     duration = min(script_content["target_duration_sec"], settings.max_video_duration_sec)
-    asset_path = None
-    for a in assets:
-        if a.storage_uri and Path(a.storage_uri).exists():
-            asset_path = Path(a.storage_uri)
-            break
+
+    scene_assets = _scene_assets_for_render(script_content, assets)
 
     template = job.render_template or "bold_center"
     ok = render_with_template(
@@ -131,8 +160,8 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
         hook_variant,
         duration,
         template=template,
-        asset_path=asset_path,
         srt_path=srt_path,
+        scene_assets=scene_assets,
     )
     if not ok:
         fail_stage(render_stage, "영상 렌더 실패")
@@ -170,6 +199,9 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
     for asset in assets:
         if asset.source_type in ("pexels", "pixabay") and asset.source_url:
             metadata["description"] += f"\n\n영상 출처: {asset.source_url}"
+        if asset.asset_metadata.get("ai_generated"):
+            metadata["ai_label_applied"] = True
+            metadata["description"] += "\n\n일부 비주얼: AI 생성 콘텐츠"
     meta_path = job_dir / "metadata.json"
     meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     finish_stage(meta_stage, str(meta_path))

@@ -50,8 +50,18 @@ async def setup_status(db: AsyncSession = Depends(get_db), settings: Settings = 
         {
             "id": "stock_api",
             "label": "스톡 API (Pexels/Pixabay)",
-            "ok": bool(settings.pexels_api_key or settings.pixabay_api_key),
-            "detail": "설정됨" if (settings.pexels_api_key or settings.pixabay_api_key) else "선택 — 없으면 플레이스홀더 렌더",
+            "ok": settings.stock_configured,
+            "detail": "설정됨" if settings.stock_configured else "선택 — 없으면 플레이스홀더 렌더",
+        },
+        {
+            "id": "asset_strategy",
+            "label": "에셋 전략",
+            "ok": True,
+            "detail": (
+                f"{settings.asset_strategy}"
+                + (" + AI 이미지" if settings.ai_image_configured else "")
+                + (" + AI 영상" if settings.ai_video_configured else "")
+            ),
         },
     ]
 
@@ -69,4 +79,7 @@ async def setup_status(db: AsyncSession = Depends(get_db), settings: Settings = 
         "checks": checks,
         "quota": quota,
         "redirect_uri": settings.youtube_redirect_uri,
+        "asset_strategy": settings.asset_strategy,
+        "ai_image_configured": settings.ai_image_configured,
+        "ai_video_configured": settings.ai_video_configured,
     }

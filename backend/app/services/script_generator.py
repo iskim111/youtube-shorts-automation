@@ -9,38 +9,46 @@ CATEGORY_CTA = {
     "tips": "도움 됐다면 저장!",
 }
 
+CATEGORY_VISUAL_BASE = {
+    "comedy": "funny everyday moment in Korea",
+    "food": "appetizing Korean food close-up",
+    "daily_pet": "cute cat or dog in a cozy home",
+    "tips": "modern smartphone lifestyle tip",
+}
+
+
+def _scene_visual_prompt(topic: TopicCandidate, narration: str, visual_hint: str) -> str:
+    base = CATEGORY_VISUAL_BASE.get(topic.category, "vertical short video scene")
+    hint = visual_hint.replace("_", " ")
+    return (
+        f"Vertical 9:16 YouTube Shorts scene, photorealistic, {base}. "
+        f"Story: {narration}. Visual focus: {hint}. No text overlay, no watermark."
+    )
+
 
 def generate_script(topic: TopicCandidate) -> dict:
     hook = topic.hook_line
     keywords = " · ".join(topic.keyword_cluster[:3])
     cta = CATEGORY_CTA.get(topic.category, "좋아요 & 구독!")
 
-    scenes = [
-        {
-            "seq": 1,
-            "narration": hook,
-            "visual_hint": f"{topic.category} hook",
-            "duration_sec": 8,
-        },
-        {
-            "seq": 2,
-            "narration": f"오늘의 키워드: {keywords}",
-            "visual_hint": "keyword overlay",
-            "duration_sec": 12,
-        },
-        {
-            "seq": 3,
-            "narration": "여러분은 어떤가요?",
-            "visual_hint": "reaction beat",
-            "duration_sec": 10,
-        },
-        {
-            "seq": 4,
-            "narration": cta,
-            "visual_hint": "cta end card",
-            "duration_sec": 8,
-        },
+    scene_defs = [
+        (hook, f"{topic.category} hook", 8),
+        (f"오늘의 키워드: {keywords}", "keyword overlay", 12),
+        ("여러분은 어떤가요?", "reaction beat", 10),
+        (cta, "cta end card", 8),
     ]
+
+    scenes = []
+    for seq, (narration, visual_hint, duration_sec) in enumerate(scene_defs, start=1):
+        scenes.append(
+            {
+                "seq": seq,
+                "narration": narration,
+                "visual_hint": visual_hint,
+                "visual_prompt": _scene_visual_prompt(topic, narration, visual_hint),
+                "duration_sec": duration_sec,
+            }
+        )
     duration = sum(s["duration_sec"] for s in scenes)
 
     return {

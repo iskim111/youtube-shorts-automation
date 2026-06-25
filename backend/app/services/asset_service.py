@@ -1,18 +1,17 @@
-"""애셋 검색·다운로드 (Pexels → Pixabay fallback)."""
+"""Job 에셋 DB 저장 — resolve는 asset_resolver가 담당."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.integrations.pexels import search_videos as pexels_search
-from app.integrations.pixabay import search_videos as pixabay_search
+from app.integrations.asset_types import ResolvedAsset
 from app.models.asset import Asset
 from app.models.job import Job
 from app.models.topic_candidate import TopicCandidate
+from app.services.asset_resolver import resolve_scene_assets
 
 CATEGORY_QUERIES = {
     "comedy": "office funny",
@@ -22,16 +21,22 @@ CATEGORY_QUERIES = {
 }
 
 
-async def _download_file(url: str, dest: Path) -> bool:
-    try:
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                dest.write_bytes(resp.content)
-                return True
-    except Exception:
-        pass
-    return False
+def _resolved_to_model(job: Job, item: ResolvedAsset) -> Asset:
+    return Asset(
+        job_id=job.id,
+        source_type=item.source_type,
+        source_url=item.source_url,
+        storage_uri=item.storage_uri,
+        license_status=item.license_status,
+        license_proof_uri=item.source_url,
+        asset_metadata={
+            **item.metadata,
+            "scene_seq": item.scene_seq,
+            "duration_sec": item.duration_sec,
+            "media_kind": item.media_kind,
+            "provider": item.provider,
+        },
+    )
 
 
 async def fetch_assets_for_job(
@@ -40,49 +45,16 @@ async def fetch_assets_for_job(
     topic: TopicCandidate,
     settings: Settings,
     job_dir: Path,
+    script_content: dict | None = None,
 ) -> list[Asset]:
-    query = CATEGORY_QUERIES.get(topic.category, " ".join(topic.keyword_cluster[:2]))
-    candidates = await pexels_search(settings, query, per_page=2)
-    if not candidates:
-        candidates = await pixabay_search(settings, query, per_page=2)
+    content = script_content or (job.script.content if job.script else {})
+    resolved = await resolve_scene_assets(settings, topic, content, job_dir)
 
     assets: list[Asset] = []
-    assets_dir = job_dir / "assets"
-    assets_dir.mkdir(parents=True, exist_ok=True)
-
-    for i, item in enumerate(candidates[:2]):
-        download_url = item.get("download_url")
-        if not download_url:
-            continue
-        dest = assets_dir / f"clip_{i}.mp4"
-        if await _download_file(download_url, dest):
-            asset = Asset(
-                job_id=job.id,
-                source_type=item["source_type"],
-                source_url=item.get("source_url"),
-                storage_uri=str(dest),
-                license_status=item.get("license_status", "low"),
-                license_proof_uri=item.get("source_url"),
-                asset_metadata={
-                    "photographer": item.get("photographer", ""),
-                    "width": item.get("width"),
-                    "height": item.get("height"),
-                },
-            )
-            session.add(asset)
-            assets.append(asset)
-
-    if not assets:
-        placeholder = Asset(
-            job_id=job.id,
-            source_type="generated",
-            source_url=None,
-            storage_uri=None,
-            license_status="low",
-            asset_metadata={"note": "no stock API key — color background fallback"},
-        )
-        session.add(placeholder)
-        assets.append(placeholder)
+    for item in resolved:
+        asset = _resolved_to_model(job, item)
+        session.add(asset)
+        assets.append(asset)
 
     await session.flush()
     return assets

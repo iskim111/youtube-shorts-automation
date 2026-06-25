@@ -12,7 +12,7 @@ from app.api.deps import get_db
 from app.config import Settings, get_settings
 from app.integrations.youtube_oauth import (
     build_authorization_url,
-    decode_state,
+    decode_oauth_state,
     exchange_code_for_tokens,
 )
 from app.models.channel import Channel
@@ -58,8 +58,8 @@ async def oauth_callback(
         raise HTTPException(status_code=503, detail="YouTube OAuth가 설정되지 않았습니다.")
 
     try:
-        channel_id = decode_state(settings, state)
-        token_data = exchange_code_for_tokens(settings, code)
+        channel_id, code_verifier = decode_oauth_state(settings, state)
+        token_data = exchange_code_for_tokens(settings, code, code_verifier=code_verifier)
         record = await save_oauth_tokens(db, settings, channel_id, token_data)
         await db.commit()
     except ValueError as exc:
