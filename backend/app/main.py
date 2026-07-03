@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 import app.models  # noqa: F401 — register ORM models
 from app.api.v1.router import api_router
@@ -49,6 +51,10 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+
+_media_root = Path(settings.data_dir) / "jobs"
+_media_root.mkdir(parents=True, exist_ok=True)
+app.mount("/media/jobs", StaticFiles(directory=str(_media_root)), name="job-media")
 
 
 @app.get("/health")

@@ -21,8 +21,10 @@ class TopicCandidateResponse(BaseModel):
     copyright_risk: Literal["low", "medium", "high"]
     ai_label_required: bool
     status: str
+    topic_source: str = "template"
 
 
 class TopicGenerateRequest(BaseModel):
     channel_id: uuid.UUID
-    limit: int = Field(default=5, ge=1, le=20)
+    limit: int = Field(default=8, ge=1, le=20)
+    source: Literal["trending", "ai", "mixed"] = "mixed"

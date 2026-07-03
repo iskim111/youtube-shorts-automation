@@ -22,6 +22,7 @@ def topic_to_response(topic: TopicCandidate) -> TopicCandidateResponse:
         copyright_risk=topic.copyright_risk.value,
         ai_label_required=topic.ai_label_required,
         status=topic.status.value,
+        topic_source=str((topic.score_breakdown or {}).get("topic_source", "template")),
     )
 
 

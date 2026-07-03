@@ -8,14 +8,19 @@ from app.config import Settings, get_settings
 from app.models.enums import JobStatus
 from app.models.job import Job
 from app.schemas.job import (
+    JobChatRequest,
+    JobChatResponse,
     JobDetailResponse,
+    JobPreviewResponse,
     JobScheduleRequest,
+    JobScriptUpdateRequest,
     JobSummaryResponse,
     PipelineRunResponse,
     PublishResponse,
 )
 from app.schemas.mappers import job_to_detail, job_to_summary
 from app.services.pipeline_service import PipelineError, load_job_full, run_pipeline_to_qa
+from app.services.job_chat_service import build_job_preview, chat_edit_script
 from app.services.render_engine import RENDER_TEMPLATES
 from app.services.recovery_service import retry_job_by_code
 from app.services.upload_service import publish_job
@@ -43,6 +48,52 @@ async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
     return job_to_detail(job)
+
+
+@router.get("/{job_id}/preview", response_model=JobPreviewResponse)
+async def job_preview(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    job = await load_job_full(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    data = build_job_preview(job, settings=settings)
+    return JobPreviewResponse(**data)
+
+
+@router.post("/{job_id}/chat", response_model=JobChatResponse)
+async def job_chat(
+    job_id: str,
+    body: JobChatRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    job = await load_job_full(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    result = await chat_edit_script(settings, job, body.message, body.history)
+    if result.get("script") and job.script:
+        job.script.content = result["script"]
+        job.script.version += 1
+        await db.commit()
+    return JobChatResponse(**result)
+
+
+@router.put("/{job_id}/script")
+async def update_script(
+    job_id: str,
+    body: JobScriptUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    job = await load_job_full(db, job_id)
+    if not job or not job.script:
+        raise HTTPException(status_code=404, detail="대본을 찾을 수 없습니다.")
+    job.script.content = body.script
+    job.script.version += 1
+    await db.commit()
+    return {"job_id": job.code, "version": job.script.version}
 
 
 @router.post("/{job_id}/run", response_model=PipelineRunResponse)

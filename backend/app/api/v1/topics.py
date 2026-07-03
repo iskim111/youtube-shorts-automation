@@ -3,13 +3,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
+from app.config import Settings, get_settings
 from app.models.channel import Channel
 from app.models.enums import TopicStatus
 from app.models.topic_candidate import TopicCandidate
 from app.schemas.mappers import topic_to_response
 from app.schemas.topic import TopicCandidateResponse, TopicGenerateRequest
 from app.services.job_service import create_job_from_topic, get_topic_by_code
-from app.services.topic_engine import generate_topic_candidates
+from app.services.topic_sources import generate_topics_from_source
 
 router = APIRouter()
 
@@ -31,15 +32,18 @@ async def list_topics(
 async def generate_topics(
     body: TopicGenerateRequest,
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ):
     channel = await db.get(Channel, body.channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="채널을 찾을 수 없습니다.")
-    candidates = await generate_topic_candidates(
+    candidates = await generate_topics_from_source(
         db,
         channel.id,
         channel.category_allowlist,
         limit=body.limit,
+        source=body.source,
+        settings=settings,
     )
     await db.commit()
     return [topic_to_response(c) for c in candidates]

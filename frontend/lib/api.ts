@@ -1,7 +1,11 @@
 import { getClientAuthToken, getServerAuthToken, isAuthEnabled } from "./auth";
 
-const API_ROOT = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const API_BASE = `${API_ROOT}/api/v1`;
+function resolveApiRoot(): string {
+  if (typeof window !== "undefined") return "";
+  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+}
+
+const API_BASE = `${resolveApiRoot()}/api/v1`;
 
 async function authHeaders(): Promise<Record<string, string>> {
   if (!isAuthEnabled()) return {};
@@ -34,6 +38,7 @@ export type TopicCandidate = {
   copyright_risk: "low" | "medium" | "high";
   ai_label_required: boolean;
   status: string;
+  topic_source?: string;
 };
 
 export type JobSummary = {
@@ -205,7 +210,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  health: () => fetchJson<HealthResponse>(`${API_ROOT}/health`),
+  health: () => fetchJson<HealthResponse>(`${resolveApiRoot() || (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")}/health`),
   setupStatus: () => fetchJson<SetupStatus>(`${API_BASE}/setup/status`),
   analyticsOverview: () => fetchJson<AnalyticsOverview>(`${API_BASE}/analytics/overview`),
   auditLogs: (entityType?: string) =>
@@ -213,8 +218,24 @@ export const api = {
       `${API_BASE}/audit/logs${entityType ? `?entity_type=${entityType}` : ""}`
     ),
   topics: () => fetchJson<TopicCandidate[]>(`${API_BASE}/topics`),
+  generateTopics: (channelId: string, source: "trending" | "ai" | "mixed" = "mixed", limit = 8) =>
+    fetchJson<TopicCandidate[]>(`${API_BASE}/topics/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel_id: channelId, source, limit }),
+    }),
   jobs: () => fetchJson<JobSummary[]>(`${API_BASE}/jobs`),
   job: (id: string) => fetchJson<JobDetail>(`${API_BASE}/jobs/${id}`),
+  jobPreview: (id: string) => fetchJson<Record<string, unknown>>(`${API_BASE}/jobs/${id}/preview`),
+  jobChat: (id: string, message: string, history: { role: string; content: string }[]) =>
+    fetchJson<{ reply: string; script: Record<string, unknown> | null; applied: boolean }>(
+      `${API_BASE}/jobs/${id}/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, history }),
+      }
+    ),
   channels: () => fetchJson<Channel[]>(`${API_BASE}/channels`),
   channel: (id: string) => fetchJson<Channel>(`${API_BASE}/channels/${id}`),
   oauthStart: (channelId: string) =>

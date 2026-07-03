@@ -56,12 +56,16 @@ def _scene_assets_for_render(
     return timeline
 
 
+_RERUN_FROM_QA_STATUSES = frozenset({JobStatus.QA_PENDING, JobStatus.QA_APPROVED})
+
+
 async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings) -> Job:
     if job.status not in (
         JobStatus.TOPIC_APPROVED,
         JobStatus.SCRIPT_READY,
         JobStatus.QA_HOLD,
         JobStatus.RIGHTS_HOLD,
+        *_RERUN_FROM_QA_STATUSES,
     ):
         raise PipelineError(f"파이프라인 실행 불가 상태: {job.status.value}")
 
@@ -76,27 +80,35 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
     if not job.render_template or job.render_template == "bold_center":
         job.render_template = assign_template_variant(job.code)
 
+    preserve_script = job.status in _RERUN_FROM_QA_STATUSES and bool(
+        job.script and job.script.content
+    )
+
     # 1. Script
-    job.status = JobStatus.SCRIPT_GENERATING
     script_stage = get_stage(job, "script")
     start_stage(script_stage)
 
-    hook_variant = apply_hook_variant(topic.hook_line, job.ab_variant or "A")
-    script_content = generate_script(topic)
-    script_content["hook"] = hook_variant
-    if script_content.get("scenes"):
-        script_content["scenes"][0]["narration"] = hook_variant
-    if job.script:
-        job.script.content = script_content
-        job.script.duration_estimate_sec = script_content["target_duration_sec"]
-        job.script.version += 1
+    if preserve_script:
+        script_content = job.script.content
+        hook_variant = script_content.get("hook") or topic.hook_line
     else:
-        job.script = Script(
-            job_id=job.id,
-            content=script_content,
-            duration_estimate_sec=script_content["target_duration_sec"],
-        )
-        session.add(job.script)
+        job.status = JobStatus.SCRIPT_GENERATING
+        hook_variant = apply_hook_variant(topic.hook_line, job.ab_variant or "A")
+        script_content = generate_script(topic)
+        script_content["hook"] = hook_variant
+        if script_content.get("scenes"):
+            script_content["scenes"][0]["narration"] = hook_variant
+        if job.script:
+            job.script.content = script_content
+            job.script.duration_estimate_sec = script_content["target_duration_sec"]
+            job.script.version += 1
+        else:
+            job.script = Script(
+                job_id=job.id,
+                content=script_content,
+                duration_estimate_sec=script_content["target_duration_sec"],
+            )
+            session.add(job.script)
 
     script_path = job_dir / "script.json"
     script_path.write_text(json.dumps(script_content, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { TopicActions } from "@/components/TopicActions";
+import { TopicLabPanel } from "@/components/TopicLabPanel";
 import { api, type TopicCandidate } from "@/lib/api";
 
 function riskBadge(risk: string) {
@@ -15,6 +14,13 @@ function statusBadge(status: string) {
   return "badge-muted";
 }
 
+const SOURCE_LABEL: Record<string, string> = {
+  trending: "트렌드",
+  ai: "AI",
+  mixed: "혼합",
+  template: "기본",
+};
+
 export default async function TopicsPage() {
   let topics: TopicCandidate[] = [];
   let error: string | null = null;
@@ -28,14 +34,17 @@ export default async function TopicsPage() {
   return (
     <div>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: 8 }}>Topic Lab</h1>
-      <p style={{ color: "var(--muted)", marginBottom: 32 }}>
-        주제 후보 점수 · 승인/폐기 (Semi-auto: 승인 후 Job 생성)
+      <p style={{ color: "var(--muted)", marginBottom: 24 }}>
+        트렌드/AI 주제 생성 → 선택 → Job 생성 → 결과 확인·수정
       </p>
 
       {error && (
         <div style={{ color: "var(--danger)", marginBottom: 24 }}>백엔드 미연결: {error}</div>
       )}
 
+      <TopicLabPanel />
+
+      <h2 style={{ fontSize: "1.1rem", marginBottom: 16 }}>저장된 주제</h2>
       <div
         style={{
           background: "var(--surface)",
@@ -48,13 +57,11 @@ export default async function TopicsPage() {
           <thead>
             <tr>
               <th>ID</th>
+              <th>출처</th>
               <th>소재군</th>
-              <th>키워드</th>
               <th>한 줄 훅</th>
               <th>조회 잠재력</th>
-              <th>저작권</th>
-              <th>최종점수</th>
-              <th>상태</th>
+              <th>점수</th>
               <th>액션</th>
             </tr>
           </thead>
@@ -62,17 +69,11 @@ export default async function TopicsPage() {
             {topics.map((t) => (
               <tr key={t.id}>
                 <td>{t.id}</td>
+                <td>{SOURCE_LABEL[t.topic_source ?? "template"] ?? t.topic_source}</td>
                 <td>{t.category}</td>
-                <td>{t.keyword_cluster.join(" / ")}</td>
                 <td>{t.hook_line}</td>
                 <td>{t.scores.view_potential}</td>
-                <td>
-                  <span className={`badge ${riskBadge(t.copyright_risk)}`}>{t.copyright_risk}</span>
-                </td>
                 <td style={{ fontWeight: 700 }}>{t.scores.final}</td>
-                <td>
-                  <span className={`badge ${statusBadge(t.status)}`}>{t.status}</span>
-                </td>
                 <td>
                   <TopicActions topicId={t.id} status={t.status} />
                 </td>

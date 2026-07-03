@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { JobActions } from "@/components/JobActions";
+import { JobReviewChat } from "@/components/JobReviewChat";
 import { JobSchedule } from "@/components/JobSchedule";
 import { api } from "@/lib/api";
 
@@ -128,6 +129,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       )}
 
       <JobActions jobId={job.id} status={job.status} />
+      <JobReviewChat jobId={job.id} />
       <JobSchedule jobId={job.id} currentTemplate={job.render_template} />
       {job.scheduled_publish_at && (
         <p style={{ marginTop: 12, fontSize: "0.85rem", color: "var(--muted)" }}>

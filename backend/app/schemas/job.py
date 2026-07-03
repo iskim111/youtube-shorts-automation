@@ -54,3 +54,29 @@ class PublishResponse(BaseModel):
     dry_run: bool
     title: str
     privacy_status: str
+
+
+class JobPreviewResponse(BaseModel):
+    job_id: str
+    status: str
+    hook_line: str
+    script: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+    video_url: str | None = None
+    thumbnail_url: str | None = None
+    youtube_video_id: str | None = None
+
+
+class JobChatRequest(BaseModel):
+    message: str
+    history: list[dict[str, str]] = Field(default_factory=list)
+
+
+class JobChatResponse(BaseModel):
+    reply: str
+    script: dict[str, Any] | None = None
+    applied: bool = False
+
+
+class JobScriptUpdateRequest(BaseModel):
+    script: dict[str, Any]
