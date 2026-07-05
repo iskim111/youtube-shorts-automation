@@ -5,12 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { clearAuthToken, isAuthEnabled } from "@/lib/auth";
 const NAV = [
-  { href: "/overview", label: "Overview" },
   { href: "/topics", label: "Topic Lab" },
-  { href: "/calendar", label: "Upload Calendar" },
-  { href: "/rights", label: "Rights Center" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/audit", label: "Audit" },
   { href: "/settings", label: "Settings" },
 ];
 

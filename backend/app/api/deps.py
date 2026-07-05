@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
+from app.services.settings_store import get_effective_settings
 from app.core.security import decode_token
 from app.db.session import get_db_session
 from app.models.enums import UserRole
@@ -18,6 +19,12 @@ security = HTTPBearer(auto_error=False)
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async for session in get_db_session():
         yield session
+
+
+async def get_effective_settings_dep(
+    db: AsyncSession = Depends(get_db),
+) -> Settings:
+    return await get_effective_settings(db)
 
 
 async def get_current_user_optional(

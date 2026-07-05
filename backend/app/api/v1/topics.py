@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
-from app.config import Settings, get_settings
+from app.api.deps import get_db, get_effective_settings_dep
+from app.config import Settings
 from app.models.channel import Channel
 from app.models.enums import TopicStatus
 from app.models.topic_candidate import TopicCandidate
@@ -32,7 +32,7 @@ async def list_topics(
 async def generate_topics(
     body: TopicGenerateRequest,
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_effective_settings_dep),
 ):
     channel = await db.get(Channel, body.channel_id)
     if not channel:

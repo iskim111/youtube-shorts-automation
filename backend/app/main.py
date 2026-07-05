@@ -10,6 +10,7 @@ from app.api.v1.router import api_router
 from app.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_initial_data
+from app.services.character_service import ensure_default_characters
 from app.db.session import async_session_factory, engine
 
 settings = get_settings()
@@ -29,6 +30,8 @@ async def lifespan(app: FastAPI):
     try:
         async with async_session_factory() as session:
             await seed_initial_data(session)
+            await ensure_default_characters(session)
+            await session.commit()
     except Exception:
         pass
 

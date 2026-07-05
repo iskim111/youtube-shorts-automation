@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
-from app.config import Settings, get_settings
+from app.api.deps import get_db, get_effective_settings_dep
+from app.config import Settings
 from app.models.channel import Channel
 from app.services.ffmpeg_path import ffmpeg_available, ffmpeg_version, resolve_ffmpeg
 from app.services.quota_manager import get_quota_status
@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/status")
-async def setup_status(db: AsyncSession = Depends(get_db), settings: Settings = Depends(get_settings)):
+async def setup_status(db: AsyncSession = Depends(get_db), settings: Settings = Depends(get_effective_settings_dep)):
     result = await db.execute(
         select(Channel).options(selectinload(Channel.oauth_credential)).where(Channel.is_active.is_(True))
     )
@@ -46,6 +46,30 @@ async def setup_status(db: AsyncSession = Depends(get_db), settings: Settings = 
             "ok": True,
             "detail": "활성" if settings.pilot_dry_run_upload else "비활성 — 실제 업로드 모드",
             "warning": not settings.pilot_dry_run_upload,
+        },
+        {
+            "id": "openai",
+            "label": "OpenAI",
+            "ok": bool(settings.openai_api_key),
+            "detail": "시나리오·채팅·주제 변형" if settings.openai_api_key else "Settings에서 키 입력",
+        },
+        {
+            "id": "youtube_data",
+            "label": "YouTube Data API",
+            "ok": settings.youtube_data_configured,
+            "detail": "TOP 100 수집" if settings.youtube_data_configured else "YOUTUBE_API_KEY 필요",
+        },
+        {
+            "id": "elevenlabs",
+            "label": "ElevenLabs TTS",
+            "ok": settings.elevenlabs_configured,
+            "detail": "캐릭터 음성" if settings.elevenlabs_configured else "선택·권장",
+        },
+        {
+            "id": "heygen",
+            "label": "HeyGen AI 영상",
+            "ok": settings.heygen_configured,
+            "detail": "AI 캐릭터 영상" if settings.heygen_configured else "HEYGEN_API_KEY 필요",
         },
         {
             "id": "stock_api",

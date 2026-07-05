@@ -39,13 +39,17 @@ async def _generate_ai_topics_openai(
     settings: Settings,
     allowlist: list[str],
     limit: int,
+    recent_hooks: list[str] | None = None,
 ) -> list[dict]:
     categories = ", ".join(allowlist)
+    avoid = ", ".join((recent_hooks or [])[:20])
     prompt = (
         f"한국 유튜브 쇼츠용 주제 {limit}개를 JSON 배열로 생성하세요. "
         f"카테고리: {categories}. "
         "각 항목: category, keyword_cluster(3개), hook_line(15자 내외), view_potential(70-95). "
-        "저작권 안전한 일상/공감/팁/반려동물 소재만. JSON만 출력."
+        "저작권 안전한 일상/공감/팁/반려동물 소재만. "
+        f"아래 훅과 비슷한 주제는 절대 금지: [{avoid}]. "
+        "매번 완전히 새로운 각도. JSON만 출력."
     )
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
@@ -57,7 +61,7 @@ async def _generate_ai_topics_openai(
             json={
                 "model": "gpt-4o-mini",
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
+                "temperature": 0.95,
             },
         )
         if resp.status_code != 200:
@@ -94,6 +98,7 @@ async def _templates_for_source(
     settings: Settings,
     allowlist: list[str],
     limit: int,
+    recent_hooks: list[str] | None = None,
 ) -> list[dict]:
     if source == "trending":
         templates = filter_by_allowlist(TRENDING_TOPIC_POOL, allowlist)
@@ -119,9 +124,29 @@ async def _templates_for_source(
     if source == "ai":
         raw: list[dict] = []
         if settings.openai_api_key:
-            raw = await _generate_ai_topics_openai(settings, allowlist, limit)
+            raw = await _generate_ai_topics_openai(
+                settings, allowlist, limit, recent_hooks=recent_hooks or []
+            )
         if not raw:
-            raw = _generate_ai_topics_free(allowlist, limit)
+            import random
+
+            seeds = list(AI_VARIATION_SEEDS)
+            random.shuffle(seeds)
+            raw = []
+            for cat, keywords, hook in seeds:
+                if cat not in set(allowlist):
+                    continue
+                variant = f"{hook} #{random.randint(1000, 9999)}"
+                raw.append(
+                    {
+                        "category": cat,
+                        "keyword_cluster": keywords,
+                        "hook_line": variant,
+                        "view_potential": 78 + (len(hook) % 12),
+                    }
+                )
+                if len(raw) >= limit:
+                    break
         return [
             {
                 "category": item["category"],
@@ -144,8 +169,8 @@ async def _templates_for_source(
         ]
 
     half = max(1, limit // 2)
-    trending = await _templates_for_source("trending", settings, allowlist, half)
-    ai = await _templates_for_source("ai", settings, allowlist, limit - half)
+    trending = await _templates_for_source("trending", settings, allowlist, half, recent_hooks)
+    ai = await _templates_for_source("ai", settings, allowlist, limit - half, recent_hooks)
     combined = trending + ai
     combined.sort(key=lambda x: x["view_potential"], reverse=True)
     return combined[:limit]
@@ -163,7 +188,7 @@ async def generate_topics_from_source(
 
     recent_hooks = await get_recent_hooks(session, channel_id)
     perf = await get_category_performance(session)
-    raw_items = await _templates_for_source(source, settings, allowlist, limit)
+    raw_items = await _templates_for_source(source, settings, allowlist, limit, recent_hooks)
 
     existing = set(recent_hooks)
     candidates: list[TopicCandidate] = []

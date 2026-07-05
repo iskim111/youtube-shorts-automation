@@ -192,6 +192,78 @@ export type AuditLog = {
   created_at: string;
 };
 
+export type ReferenceAnalysis = {
+  video_id: string;
+  url: string;
+  title: string;
+  author_name: string | null;
+  thumbnail_url: string | null;
+  category: string;
+  hook_line: string;
+  keyword_cluster: string[];
+  style_notes: string;
+  script: Record<string, unknown>;
+};
+
+export type ReferenceCreateJobResponse = {
+  topic_id: string;
+  job_id: string;
+  status: string;
+  hook_line: string;
+  reference_url: string;
+  reference_title: string;
+};
+
+export type ApiKeysConfig = {
+  openai_api_key: string;
+  youtube_api_key: string;
+  elevenlabs_api_key: string;
+  heygen_api_key: string;
+  pexels_api_key: string;
+  pixabay_api_key: string;
+  youtube_client_id: string;
+  youtube_client_secret: string;
+  video_mode: string;
+  configured?: Record<string, boolean>;
+};
+
+export type TrendingShort = {
+  video_id: string;
+  url: string;
+  title: string;
+  channel_title: string;
+  thumbnail_url: string | null;
+  view_count: number;
+};
+
+export type ProductionCreateResponse = {
+  topic_id: string;
+  job_id: string;
+  status: string;
+  hook_line: string;
+  script_format: string;
+};
+
+export type Character = {
+  id: string;
+  code: string;
+  name: string;
+  role: string;
+  heygen_avatar_id: string;
+  elevenlabs_voice_id: string;
+  speech_style: string;
+  language_primary: string;
+  avatar_image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type SeriesPreset = {
+  id: string;
+  label: string;
+  roles: string[];
+};
+
 export const api = {
   login: (email: string, password: string) =>
     fetchJson<LoginResponse>(`${API_BASE}/auth/login`, {
@@ -223,6 +295,18 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channel_id: channelId, source, limit }),
+    }),
+  analyzeReference: (url: string, channelId: string) =>
+    fetchJson<ReferenceAnalysis>(`${API_BASE}/references/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, channel_id: channelId }),
+    }),
+  createJobFromReference: (url: string, channelId: string, analysis?: ReferenceAnalysis) =>
+    fetchJson<ReferenceCreateJobResponse>(`${API_BASE}/references/create-job`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, channel_id: channelId, analysis: analysis ?? null }),
     }),
   jobs: () => fetchJson<JobSummary[]>(`${API_BASE}/jobs`),
   job: (id: string) => fetchJson<JobDetail>(`${API_BASE}/jobs/${id}`),
@@ -270,5 +354,48 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, note }),
+    }),
+  getApiKeys: () => fetchJson<ApiKeysConfig>(`${API_BASE}/settings/keys`),
+  updateApiKeys: (body: Partial<ApiKeysConfig>) =>
+    fetchJson<ApiKeysConfig>(`${API_BASE}/settings/keys`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  trendingShorts: (limit = 100) =>
+    fetchJson<{ items: TrendingShort[]; count: number }>(`${API_BASE}/trending/shorts?limit=${limit}`),
+  createFromTrending: (videoId: string, channelId: string) =>
+    fetchJson<ProductionCreateResponse>(`${API_BASE}/trending/shorts/${videoId}/create-production`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel_id: channelId }),
+    }),
+  characters: () => fetchJson<Character[]>(`${API_BASE}/characters`),
+  createCharacter: (body: {
+    name: string;
+    role: string;
+    heygen_avatar_id?: string;
+    elevenlabs_voice_id?: string;
+    speech_style?: string;
+    language_primary?: string;
+    avatar_image_url?: string | null;
+  }) =>
+    fetchJson<Character>(`${API_BASE}/characters`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  updateCharacter: (code: string, body: Partial<Character>) =>
+    fetchJson<Character>(`${API_BASE}/characters/${code}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  seriesPresets: () => fetchJson<SeriesPreset[]>(`${API_BASE}/characters/presets`),
+  createSeriesEpisode: (channelId: string, preset: string, topicHint = "") =>
+    fetchJson<ProductionCreateResponse>(`${API_BASE}/characters/series/episode`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel_id: channelId, preset, topic_hint: topicHint }),
     }),
 };

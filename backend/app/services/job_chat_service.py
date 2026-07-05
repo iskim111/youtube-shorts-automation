@@ -20,10 +20,23 @@ def build_job_preview(job: Job, settings: Settings | None = None) -> dict[str, A
     video_uri = job.render_output.video_uri if job.render_output else None
     thumb_uri = job.render_output.thumbnail_uri if job.render_output else None
     metadata = None
+    reference = None
     job_dir = Path(settings.data_dir) / "jobs" / job.code
     meta_path = job_dir / "metadata.json"
     if meta_path.exists():
         metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    ref_path = job_dir / "reference_analysis.json"
+    if ref_path.exists():
+        reference = json.loads(ref_path.read_text(encoding="utf-8"))
+    elif job.topic_candidate and job.topic_candidate.score_breakdown:
+        breakdown = job.topic_candidate.score_breakdown
+        if breakdown.get("reference_url"):
+            reference = {
+                "url": breakdown.get("reference_url"),
+                "video_id": breakdown.get("reference_video_id"),
+                "title": breakdown.get("reference_title"),
+                **(breakdown.get("reference_analysis") or {}),
+            }
 
     def media_url(path: str | None, fallback_name: str) -> str | None:
         if path:
@@ -42,6 +55,7 @@ def build_job_preview(job: Job, settings: Settings | None = None) -> dict[str, A
         "hook_line": job.topic_candidate.hook_line if job.topic_candidate else "",
         "script": job.script.content if job.script else None,
         "metadata": metadata,
+        "reference": reference,
         "video_url": media_url(video_uri, "output.mp4"),
         "thumbnail_url": media_url(thumb_uri, "thumbnail.jpg"),
         "youtube_video_id": job.upload_record.youtube_video_id if job.upload_record else None,
@@ -111,9 +125,10 @@ async def chat_edit_script(
         }
 
     script = job.script.content
+    reference_ctx = _load_reference_context(job, settings)
 
     if settings.openai_api_key:
-        result = await _openai_chat_edit(settings, script, message, history or [])
+        result = await _openai_chat_edit(settings, script, message, history or [], reference_ctx)
         if result:
             return result
 
@@ -121,14 +136,39 @@ async def chat_edit_script(
     return {"reply": reply, "script": updated, "applied": updated is not None}
 
 
+def _load_reference_context(job: Job, settings: Settings) -> dict[str, Any] | None:
+    job_dir = Path(settings.data_dir) / "jobs" / job.code
+    ref_path = job_dir / "reference_analysis.json"
+    if ref_path.exists():
+        return json.loads(ref_path.read_text(encoding="utf-8"))
+    if job.topic_candidate and job.topic_candidate.score_breakdown:
+        b = job.topic_candidate.score_breakdown
+        if b.get("reference_url"):
+            return {
+                "url": b.get("reference_url"),
+                "title": b.get("reference_title"),
+                **(b.get("reference_analysis") or {}),
+            }
+    return None
+
+
 async def _openai_chat_edit(
     settings: Settings,
     script: dict,
     message: str,
     history: list[dict[str, str]],
+    reference_ctx: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
+    ref_note = ""
+    if reference_ctx:
+        ref_note = (
+            f"\nReference Shorts (inspiration only, do not copy verbatim): "
+            f"{json.dumps(reference_ctx, ensure_ascii=False)}"
+        )
     system = (
         "Korean YouTube Shorts script editor. Apply user edits to script JSON. "
+        "Keep the video original — inspired by reference structure only."
+        f"{ref_note} "
         "Respond JSON: {reply: string, script: object|null}."
     )
     messages = [{"role": "system", "content": system}]

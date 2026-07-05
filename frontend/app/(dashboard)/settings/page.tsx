@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 
+import { ApiKeysForm } from "@/components/ApiKeysForm";
 import { ChannelCreateForm } from "@/components/ChannelCreateForm";
+import { CharacterManager } from "@/components/CharacterManager";
 import { OAuthConnect } from "@/components/OAuthConnect";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { api, type Channel } from "@/lib/api";
@@ -19,14 +21,16 @@ export default async function SettingsPage() {
     <div>
       <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: 8 }}>Settings</h1>
       <p style={{ color: "var(--muted)", marginBottom: 32 }}>
-        YouTube OAuth 채널 연결 · Semi-auto 업로드 준비
+        API 키 · AI 캐릭터 · YouTube 채널 연동
       </p>
+
+      <ApiKeysForm />
+      <CharacterManager />
+      <SetupChecklist />
 
       {error && (
         <div style={{ color: "var(--danger)", marginBottom: 24 }}>백엔드 미연결: {error}</div>
       )}
-
-      <SetupChecklist />
 
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: "1rem", marginBottom: 16 }}>채널 관리</h2>

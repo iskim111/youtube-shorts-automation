@@ -10,6 +10,7 @@ type Preview = {
   hook_line: string;
   script: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
+  reference: Record<string, unknown> | null;
   video_url: string | null;
   thumbnail_url: string | null;
   youtube_video_id: string | null;
@@ -17,16 +18,18 @@ type Preview = {
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
-type Props = { jobId: string };
+type Props = { jobId: string; referenceMode?: boolean };
 
-export function JobReviewChat({ jobId }: Props) {
+export function JobReviewChat({ jobId, referenceMode }: Props) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       role: "assistant",
-      content: "결과물을 확인하고 대본을 수정할 수 있어요. 예: `훅: 새 문장`, `장면 2: 나레이션`, `대본 보여줘`",
+      content: referenceMode
+        ? "참조 Shorts를 바탕으로 만든 대본이에요. 채팅으로 훅·장면을 수정할 수 있습니다.\n예: `훅: 새 문장`, `장면 2: 나레이션`, `분위기를 더 코믹하게`"
+        : "결과물을 확인하고 대본을 수정할 수 있어요. 예: `훅: 새 문장`, `장면 2: 나레이션`, `대본 보여줘`",
     },
   ]);
   const [input, setInput] = useState("");
@@ -38,9 +41,8 @@ export function JobReviewChat({ jobId }: Props) {
     setPreviewLoading(true);
     setPreviewError(null);
     try {
-      const res = await fetch(`/api/v1/jobs/${jobId}/preview`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`미리보기 API 오류 (${res.status})`);
-      setPreview(await res.json());
+      const data = (await api.jobPreview(jobId)) as Preview;
+      setPreview(data);
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : "미리보기 로드 실패");
     } finally {
@@ -66,12 +68,7 @@ export function JobReviewChat({ jobId }: Props) {
     setLoading(true);
     try {
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
-      const res = await fetch(`/api/v1/jobs/${jobId}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg, history }),
-      });
-      const data = await res.json();
+      const data = await api.jobChat(jobId, userMsg, history);
       setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
       if (data.script) await loadPreview();
     } catch {
@@ -123,6 +120,28 @@ export function JobReviewChat({ jobId }: Props) {
         {previewError && (
           <div style={{ color: "var(--danger)", marginBottom: 8, fontSize: "0.9rem" }}>
             {previewError} — 백엔드(8000) 실행 후 새로고침하세요.
+          </div>
+        )}
+        {preview?.reference && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 8,
+              background: "var(--bg)",
+              fontSize: "0.8rem",
+              color: "var(--muted)",
+            }}
+          >
+            참조:{" "}
+            <a
+              href={String((preview.reference as { url?: string }).url ?? "")}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--accent)" }}
+            >
+              {(preview.reference as { title?: string }).title ?? "Shorts"}
+            </a>
           </div>
         )}
         {resolveMediaUrl(preview?.video_url ?? null) ? (

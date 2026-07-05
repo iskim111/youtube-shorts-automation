@@ -70,7 +70,13 @@ class Settings(BaseSettings):
     pexels_api_key: str = ""
     pixabay_api_key: str = ""
     openai_api_key: str = ""
+    youtube_api_key: str = ""
+    elevenlabs_api_key: str = ""
+    heygen_api_key: str = ""
+    gcp_project_id: str = ""
     asset_strategy: Literal["free_only", "hybrid", "ai_preferred"] = "free_only"
+    video_mode: Literal["ai_character", "stock_broll"] = "ai_character"
+    trending_cache_ttl_hours: int = 6
     ai_image_provider: Literal["openai", "none"] = "openai"
     ai_video_provider: Literal["none", "runway", "luma"] = "none"
     runway_api_key: str = ""
@@ -103,11 +109,25 @@ class Settings(BaseSettings):
 
     @property
     def ai_video_configured(self) -> bool:
+        if getattr(self, "heygen_api_key", ""):
+            return True
         if self.ai_video_provider == "runway":
             return bool(self.runway_api_key)
         if self.ai_video_provider == "luma":
             return bool(self.luma_api_key)
         return False
+
+    @property
+    def elevenlabs_configured(self) -> bool:
+        return bool(getattr(self, "elevenlabs_api_key", ""))
+
+    @property
+    def heygen_configured(self) -> bool:
+        return bool(getattr(self, "heygen_api_key", ""))
+
+    @property
+    def youtube_data_configured(self) -> bool:
+        return bool(getattr(self, "youtube_api_key", ""))
 
     @property
     def stock_configured(self) -> bool:

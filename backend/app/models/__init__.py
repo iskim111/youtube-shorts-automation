@@ -1,6 +1,8 @@
+from app.models.app_setting import AppSetting
 from app.models.asset import Asset
 from app.models.audit_log import AuditLog
 from app.models.channel import Channel
+from app.models.character import Character
 from app.models.job import Job
 from app.models.job_stage import JobStage
 from app.models.oauth_credential import OAuthCredential
@@ -12,9 +14,11 @@ from app.models.topic_candidate import TopicCandidate
 from app.models.upload_record import UploadRecord
 
 __all__ = [
+    "AppSetting",
     "Asset",
     "AuditLog",
     "Channel",
+    "Character",
     "Job",
     "JobStage",
     "OAuthCredential",

@@ -62,6 +62,7 @@ class JobPreviewResponse(BaseModel):
     hook_line: str
     script: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
+    reference: dict[str, Any] | None = None
     video_url: str | None = None
     thumbnail_url: str | None = None
     youtube_video_id: str | None = None

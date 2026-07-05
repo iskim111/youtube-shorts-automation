@@ -8,9 +8,10 @@ import { api } from "@/lib/api";
 type Props = {
   jobId: string;
   status: string;
+  onComplete?: () => void;
 };
 
-export function JobActions({ jobId, status }: Props) {
+export function JobActions({ jobId, status, onComplete }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export function JobActions({ jobId, status }: Props) {
       const res = await api.runPipeline(jobId);
       setMessage(res.message);
       router.refresh();
+      onComplete?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "실행 실패");
     } finally {
@@ -38,6 +40,7 @@ export function JobActions({ jobId, status }: Props) {
       await api.retryJob(jobId);
       setMessage("재시도 완료");
       router.refresh();
+      onComplete?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "재시도 실패");
     } finally {
@@ -54,6 +57,7 @@ export function JobActions({ jobId, status }: Props) {
       const label = res.dry_run ? "(dry-run)" : "";
       setMessage(`업로드 완료 ${label}: ${res.youtube_video_id}`);
       router.refresh();
+      onComplete?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "업로드 실패");
     } finally {

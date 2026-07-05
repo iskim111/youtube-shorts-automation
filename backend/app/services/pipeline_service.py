@@ -80,8 +80,8 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
     if not job.render_template or job.render_template == "bold_center":
         job.render_template = assign_template_variant(job.code)
 
-    preserve_script = job.status in _RERUN_FROM_QA_STATUSES and bool(
-        job.script and job.script.content
+    preserve_script = bool(job.script and job.script.content) and (
+        job.status in _RERUN_FROM_QA_STATUSES or job.status == JobStatus.TOPIC_APPROVED
     )
 
     # 1. Script
@@ -157,24 +157,43 @@ async def run_pipeline_to_qa(session: AsyncSession, job: Job, settings: Settings
     write_srt(script_content, srt_path)
     finish_stage(subtitle_stage, str(srt_path))
 
-    # 6. Render with template
+    # 6. Render — AI 캐릭터 모드 우선
     render_stage = get_stage(job, "render")
     start_stage(render_stage)
     job.status = JobStatus.RENDER_PROCESSING
     video_path = job_dir / "output.mp4"
     duration = min(script_content["target_duration_sec"], settings.max_video_duration_sec)
 
-    scene_assets = _scene_assets_for_render(script_content, assets)
-
-    template = job.render_template or "bold_center"
-    ok = render_with_template(
-        video_path,
-        hook_variant,
-        duration,
-        template=template,
-        srt_path=srt_path,
-        scene_assets=scene_assets,
+    ok = False
+    use_ai = (
+        settings.video_mode == "ai_character"
+        and settings.heygen_configured
+        and script_content.get("format") in ("dialogue", "ai_character")
     )
+    if use_ai:
+        from app.services.ai_video_pipeline import render_ai_character_video
+        from app.services.character_service import get_characters_by_codes, list_characters
+
+        codes = script_content.get("character_codes") or []
+        scene_codes = [s.get("character_code") for s in script_content.get("scenes", []) if s.get("character_code")]
+        all_codes = list({*(codes or []), *scene_codes})
+        char_map = await get_characters_by_codes(session, all_codes)
+        if not char_map:
+            all_chars = await list_characters(session)
+            char_map = {c.code: c for c in all_chars}
+        ok = await render_ai_character_video(settings, script_content, char_map, job_dir, video_path)
+
+    scene_assets = _scene_assets_for_render(script_content, assets)
+    template = job.render_template or "bold_center"
+    if not ok:
+        ok = render_with_template(
+            video_path,
+            hook_variant,
+            duration,
+            template=template,
+            srt_path=srt_path,
+            scene_assets=scene_assets,
+        )
     if not ok:
         fail_stage(render_stage, "영상 렌더 실패")
         raise PipelineError("영상 렌더 실패", stage="render")

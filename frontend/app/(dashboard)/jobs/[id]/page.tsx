@@ -40,8 +40,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   return (
     <div>
       <div style={{ marginBottom: 32 }}>
-        <Link href="/overview" style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-          ← Overview
+        <Link href="/topics" style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+          ← Topic Lab
         </Link>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginTop: 8 }}>
           Job {job.id}

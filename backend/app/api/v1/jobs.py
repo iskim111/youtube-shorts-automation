@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
-from app.config import Settings, get_settings
+from app.api.deps import get_db, get_effective_settings_dep
+from app.config import Settings
 from app.models.enums import JobStatus
 from app.models.job import Job
 from app.schemas.job import (
@@ -54,7 +54,7 @@ async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
 async def job_preview(
     job_id: str,
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_effective_settings_dep),
 ):
     job = await load_job_full(db, job_id)
     if not job:
@@ -68,7 +68,7 @@ async def job_chat(
     job_id: str,
     body: JobChatRequest,
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_effective_settings_dep),
 ):
     job = await load_job_full(db, job_id)
     if not job:
@@ -101,7 +101,7 @@ async def run_pipeline(
     job_id: str,
     use_async: bool = Query(False, alias="async"),
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_effective_settings_dep),
 ):
     if settings.use_celery and use_async:
         from app.workers.tasks import run_pipeline as run_pipeline_task
@@ -163,7 +163,7 @@ async def schedule_job(
 async def publish(
     job_id: str,
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_effective_settings_dep),
 ):
     job = await load_job_full(db, job_id)
     if not job:
@@ -195,7 +195,7 @@ async def approve_qa(job_id: str, db: AsyncSession = Depends(get_db)):
 async def retry_job_endpoint(
     job_id: str,
     db: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_effective_settings_dep),
 ):
     try:
         result = await retry_job_by_code(db, job_id, settings)
