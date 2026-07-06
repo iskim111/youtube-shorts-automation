@@ -227,6 +227,20 @@ export type ApiKeysConfig = {
   configured?: Record<string, boolean>;
 };
 
+export type TrendingKeyword = {
+  rank: number;
+  keyword: string;
+  source: string;
+  traffic?: string | null;
+};
+
+export type TrendingKeywordsResponse = {
+  google: TrendingKeyword[];
+  naver: TrendingKeyword[];
+  combined: TrendingKeyword[];
+  fetched_at?: number;
+};
+
 export type TrendingShort = {
   video_id: string;
   url: string;
@@ -234,6 +248,21 @@ export type TrendingShort = {
   channel_title: string;
   thumbnail_url: string | null;
   view_count: number;
+  matched_keyword?: string | null;
+  keyword_source?: string | null;
+};
+
+export type TrendingShortsResponse = {
+  items: TrendingShort[];
+  keywords: {
+    google: TrendingKeyword[];
+    naver: TrendingKeyword[];
+    combined: TrendingKeyword[];
+  };
+  count: number;
+  region: string;
+  source: string;
+  search_keyword?: string | null;
 };
 
 export type ProductionCreateResponse = {
@@ -362,14 +391,27 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  trendingShorts: (limit = 100) =>
-    fetchJson<{ items: TrendingShort[]; count: number }>(`${API_BASE}/trending/shorts?limit=${limit}`),
+  trendingKeywords: (limit = 100) =>
+    fetchJson<TrendingKeywordsResponse>(`${API_BASE}/trending/keywords?limit=${limit}`),
+  trendingShorts: (limit = 100, keyword?: string) =>
+    fetchJson<TrendingShortsResponse>(
+      `${API_BASE}/trending/shorts?limit=${limit}${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ""}`
+    ),
   createFromTrending: (videoId: string, channelId: string) =>
     fetchJson<ProductionCreateResponse>(`${API_BASE}/trending/shorts/${videoId}/create-production`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channel_id: channelId }),
     }),
+  createFromKeyword: (keyword: string, channelId: string, source = "combined") =>
+    fetchJson<ProductionCreateResponse>(
+      `${API_BASE}/trending/keywords/create-production?keyword=${encodeURIComponent(keyword)}&source=${encodeURIComponent(source)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel_id: channelId }),
+      }
+    ),
   characters: () => fetchJson<Character[]>(`${API_BASE}/characters`),
   createCharacter: (body: {
     name: string;

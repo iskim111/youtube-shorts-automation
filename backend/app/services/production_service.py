@@ -50,6 +50,37 @@ async def create_production_from_trending(
     return topic, job, script_content
 
 
+async def create_production_from_keyword(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    channel,
+    keyword: str,
+    source: str = "combined",
+):
+    script_content = await generate_trend_scenario(
+        settings,
+        video_title=keyword,
+        channel_title="인기 검색어",
+    )
+    topic = await _create_topic(
+        session,
+        channel.id,
+        hook_line=script_content.get("hook", keyword[:50]),
+        category="comedy",
+        keywords=[keyword],
+        source_links=[f"keyword:{source}:{keyword}"],
+        breakdown={
+            "topic_source": "daily_keyword",
+            "keyword": keyword,
+            "keyword_source": source,
+            "video_mode": settings.video_mode,
+        },
+    )
+    job = await _attach_job_script(session, topic, channel, script_content, settings)
+    return topic, job, script_content
+
+
 async def create_series_episode(
     session: AsyncSession,
     settings: Settings,
